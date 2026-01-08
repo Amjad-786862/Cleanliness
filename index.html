@@ -6,19 +6,6 @@
     <title>Airport Cleanliness Inspection System</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Add Firebase to the head section -->
-<head>
-    <!-- Existing head content... -->
-    
-    <!-- Add Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    
-    <style>
-        /* Existing styles... */
-    </style>
-</head>
     <style>
         /* Custom styles to enhance the design */
         .status-excellent { background-color: #10b981 !important; color: white; }
@@ -315,772 +302,514 @@
     </div>
 
     <script>
-    // ==================== FIREBASE CONFIGURATION ====================
-// Replace with your Firebase configuration
-const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-};
+    // Application State
+    const state = {
+        isLoggedIn: false,
+        viewMode: 'entry',
+        currentDate: '',
+        currentTime: '',
+        shift: '',
+        inspector: '',
+        data: {},
+        savedReports: [],
+        expandedSections: {},
+        areas: [
+            {
+                id: "apron",
+                name: "✈️ Apron Area",
+                locations: [
+                    "Apron Area North Side",
+                    "Apron Area South Side",
+                    "Apron Toilet North Side",
+                    "Apron Toilet South Side",
+                    "Bridge Stairs Cleanliness",
+                ],
+                hasDustbins: true,
+                hasWalls: true,
+                hasToilets: true,
+            },
+            {
+                id: "international",
+                name: "🌍 International Arrival",
+                locations: [
+                    "Immigration Area",
+                    "Intl. Arrival Hall",
+                    "Gents Toilet",
+                    "Ladies Toilet",
+                    "Wheelchair Toilet",
+                    "Belts Area",
+                ],
+                hasDustbins: true,
+                hasWalls: true,
+                hasToilets: true,
+                hasFIACounters: true,
+                hasConveyorBelt: true,
+            },
+            {
+                id: "domestic",
+                name: "🏠 Domestic Arrival",
+                locations: [
+                    "Dom. Arrival Hall",
+                    "Gents Toilet",
+                    "Ladies Toilet",
+                    "Wheelchair Toilet",
+                    "Belts Area",
+                ],
+                hasDustbins: true,
+                hasWalls: true,
+                hasToilets: true,
+                hasConveyorBelt: true,
+            },
+            {
+                id: "concourse",
+                name: "🏛️ Concourse Hall",
+                locations: [
+                    "Concourse North Side",
+                    "Concourse South Side",
+                    "Gents Toilet",
+                    "Ladies Toilet",
+                    "Wheelchair Toilet",
+                ],
+                hasDustbins: true,
+                hasWalls: true,
+                hasToilets: true,
+            },
+            {
+                id: "parking",
+                name: "🚗 Parking & Roads",
+                locations: [
+                    "Parking Area North",
+                    "Parking Area South",
+                    "Parking Central",
+                    "Entry/Exit Points",
+                ],
+                hasDustbins: true,
+            },
+            {
+                id: "level0",
+                name: "🏢 Level 0 - Complete Area",
+                locations: [
+                    "Concourse Hall Level 0 (General)",
+                    "Concourse Hall - Gents Toilet",
+                    "Concourse Hall - Ladies Toilet",
+                    "Concourse Hall - Wheelchair Toilet",
+                    "Web Cleaning North Section",
+                    "Web Cleaning South Section",
+                    "Staircases Level 0",
+                    "Corridors & Passageways",
+                ],
+                hasDustbins: true,
+                hasWalls: true,
+                hasToilets: true,
+                hasWebClean: true,
+                isLevel0: true,
+            },
+        ]
+    };
 
-// Initialize Firebase
-let firebaseInitialized = false;
-let db = null;
-let auth = null;
+    // Constants
+    const SHARED_EMAIL = "cleanliness@airport.com";
+    const SHARED_PASSWORD = "Clean2024!";
 
-function initializeFirebase() {
-    try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        auth = firebase.auth();
-        firebaseInitialized = true;
-        console.log("Firebase initialized successfully");
-        return true;
-    } catch (error) {
-        console.error("Firebase initialization error:", error);
-        return false;
+    // DOM Elements
+    const loginScreen = document.getElementById('login-screen');
+    const mainApp = document.getElementById('main-app');
+    const loginStatus = document.getElementById('login-status');
+    const saveStatus = document.getElementById('save-status');
+    const entryView = document.getElementById('entry-view');
+    const reportsView = document.getElementById('reports-view');
+    const areasContainer = document.getElementById('areas-container');
+    const reportsContainer = document.getElementById('reports-container');
+    const reportsTitle = document.getElementById('reports-title');
+
+    // Initialize the application
+    function init() {
+        // Set current date and time
+        const now = new Date();
+        state.currentDate = now.toISOString().split('T')[0];
+        state.currentTime = now.toTimeString().slice(0, 5);
+        
+        // Initialize form fields
+        document.getElementById('current-date-input').value = state.currentDate;
+        document.getElementById('current-time-input').value = state.currentTime;
+        document.getElementById('current-date').textContent = formatDate(now);
+        document.getElementById('current-time').textContent = formatTime(now);
+        
+        // Initialize data structure
+        initializeData();
+        
+        // Load saved reports from localStorage
+        loadSavedReports();
+        
+        // Update stats
+        updateStats();
+        
+        // Render areas
+        renderAreas();
+        
+        // Update time every minute
+        setInterval(updateDateTime, 60000);
+        
+        // Check if user was previously logged in
+        const savedLogin = localStorage.getItem('airportCleanlinessLoggedIn');
+        if (savedLogin === 'true') {
+            handleLogin(true);
+        }
     }
-}
 
-// Modified login function to use Firebase
-async function handleLoginWithFirebase(autoLogin = false) {
-    let email, password;
-    
-    if (autoLogin) {
-        email = SHARED_EMAIL;
-        password = SHARED_PASSWORD;
-    } else {
-        email = document.getElementById('login-email').value;
-        password = document.getElementById('login-password').value;
+    // Initialize data structure
+    function initializeData() {
+        const newData = {};
+        state.areas.forEach((area) => {
+            area.locations.forEach((loc) => {
+                const key = `${area.id}-${loc.replace(/\s+/g, "_")}`;
+                newData[key] = {
+                    status: "pending",
+                    score: "",
+                    deepClean: false,
+                    routineClean: false,
+                    manpower: "",
+                    material: "",
+                    statedStaff: "",
+                    actualStaff: "",
+                    notes: "",
+                };
+            });
+
+            if (area.hasDustbins) {
+                newData[`${area.id}-dustbins`] = {
+                    fullOfGarbage: "pending",
+                    cleaned: "pending",
+                    emptiedTimely: "pending",
+                    lastEmptied: "",
+                    notes: "",
+                };
+            }
+
+            if (area.hasWalls) {
+                newData[`${area.id}-walls`] = {
+                    wallsStatus: "pending",
+                    notes: "",
+                };
+                if (area.hasToilets) {
+                    newData[`${area.id}-toilet-walls`] = {
+                        status: "pending",
+                    };
+                }
+            }
+
+            if (area.hasFIACounters) {
+                newData[`${area.id}-fia-counters`] = {
+                    status: "pending",
+                    lastChecked: "",
+                    notes: "",
+                };
+            }
+
+            if (area.hasConveyorBelt) {
+                newData[`${area.id}-conveyor-belt`] = {
+                    status: "pending",
+                    lastCleaned: "",
+                    notes: "",
+                };
+            }
+
+            if (area.hasWebClean) {
+                newData[`${area.id}-web-clean`] = {
+                    status: "pending",
+                    lastCleaned: "",
+                    notes: "",
+                };
+            }
+        });
+        state.data = newData;
     }
-    
-    try {
-        // Try Firebase authentication first
-        if (firebaseInitialized) {
-            await auth.signInWithEmailAndPassword(email, password);
+
+    // Format date for display
+    function formatDate(date) {
+        return date.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+    }
+
+    // Format time for display
+    function formatTime(date) {
+        return date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    }
+
+    // Update date and time display
+    function updateDateTime() {
+        const now = new Date();
+        document.getElementById('current-date').textContent = formatDate(now);
+        document.getElementById('current-time').textContent = formatTime(now);
+    }
+
+    // Handle login
+    function handleLogin(autoLogin = false) {
+        let email, password;
+        
+        if (autoLogin) {
+            email = SHARED_EMAIL;
+            password = SHARED_PASSWORD;
+        } else {
+            email = document.getElementById('login-email').value;
+            password = document.getElementById('login-password').value;
+        }
+        
+        if (email === SHARED_EMAIL && password === SHARED_PASSWORD) {
             state.isLoggedIn = true;
+            
+            // Save login state to localStorage
             localStorage.setItem('airportCleanlinessLoggedIn', 'true');
             
-            // Load data from Firebase
-            await loadDataFromFirebase();
-            
+            // Switch to main app
             loginScreen.classList.add('hidden');
             mainApp.classList.remove('hidden');
-            showStatus('success', '✓ Logged in successfully (Cloud Sync Enabled)');
-            return;
+            
+            showStatus('success', '✓ Logged in successfully (Local Storage Mode)');
+        } else {
+            showStatus('error', '✗ Invalid credentials');
         }
-    } catch (firebaseError) {
-        console.log("Firebase login failed, using local fallback:", firebaseError);
     }
-    
-    // Fallback to local authentication
-    if (email === SHARED_EMAIL && password === SHARED_PASSWORD) {
-        state.isLoggedIn = true;
-        localStorage.setItem('airportCleanlinessLoggedIn', 'true');
-        
-        loginScreen.classList.add('hidden');
-        mainApp.classList.remove('hidden');
-        showStatus('success', '✓ Logged in successfully (Local Storage Only)');
-    } else {
-        showStatus('error', '✗ Invalid credentials');
+
+    // Handle login key press
+    function handleLoginKeyPress(event) {
+        if (event.key === 'Enter') {
+            handleLogin();
+        }
     }
-}
 
-// Save data to Firebase
-async function saveReportToFirebase() {
-    if (!firebaseInitialized) return false;
-    
-    try {
-        state.currentDate = document.getElementById('current-date-input').value;
-        state.currentTime = document.getElementById('current-time-input').value;
-        state.shift = document.getElementById('shift-select').value;
-        state.inspector = document.getElementById('inspector-input').value;
+    // Handle logout
+    function handleLogout() {
+        state.isLoggedIn = false;
+        localStorage.removeItem('airportCleanlinessLoggedIn');
+        mainApp.classList.add('hidden');
+        loginScreen.classList.remove('hidden');
         
-        if (!state.inspector || !state.shift) {
-            showStatus('warning', '⚠ Please fill inspector name and shift');
-            return false;
-        }
-        
-        const report = {
-            timestamp: new Date().toISOString(),
-            date: state.currentDate,
-            time: state.currentTime,
-            shift: state.shift,
-            inspector: state.inspector,
-            data: { ...state.data },
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // Save to Firebase
-        await db.collection('cleanlinessReports').add(report);
-        
-        // Also save locally for offline access
-        const reports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
-        reports.push(report);
-        localStorage.setItem('airportCleanlinessReports', JSON.stringify(reports));
-        state.savedReports = reports;
-        
-        showStatus('success', '✓ Report saved to Cloud & Local Storage!');
-        return true;
-    } catch (error) {
-        console.error("Error saving to Firebase:", error);
-        showStatus('warning', '⚠ Cloud save failed, saving locally only');
-        
-        // Fallback to local save
-        saveReport();
-        return false;
+        // Clear login form
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-password').value = '';
     }
-}
 
-// Load data from Firebase
-async function loadDataFromFirebase() {
-    if (!firebaseInitialized) return;
-    
-    try {
-        const snapshot = await db.collection('cleanlinessReports')
-            .orderBy('createdAt', 'desc')
-            .limit(1000)
-            .get();
+    // Show status message
+    function showStatus(type, message) {
+        const statusDiv = type === 'login' ? loginStatus : saveStatus;
         
-        const cloudReports = [];
-        snapshot.forEach(doc => {
-            cloudReports.push({ id: doc.id, ...doc.data() });
-        });
+        statusDiv.textContent = message;
+        statusDiv.className = 'p-3 rounded-lg text-center text-sm';
         
-        // Merge with local data
-        const localReports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
-        
-        // Create a map to avoid duplicates (by timestamp)
-        const reportMap = new Map();
-        
-        // Add local reports
-        localReports.forEach(report => {
-            if (report.timestamp) {
-                reportMap.set(report.timestamp, report);
-            }
-        });
-        
-        // Add cloud reports (will overwrite local if same timestamp)
-        cloudReports.forEach(report => {
-            if (report.timestamp) {
-                reportMap.set(report.timestamp, report);
-            }
-        });
-        
-        // Convert back to array and sort
-        const mergedReports = Array.from(reportMap.values())
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
-        // Save merged data
-        localStorage.setItem('airportCleanlinessReports', JSON.stringify(mergedReports));
-        state.savedReports = mergedReports;
-        
-        console.log(`Loaded ${cloudReports.length} cloud reports, ${localReports.length} local reports`);
-        
-        if (state.viewMode !== 'entry') {
-            renderReports(state.viewMode);
-        }
-    } catch (error) {
-        console.error("Error loading from Firebase:", error);
-    }
-}
-
-// Modified saveReport function to use Firebase
-function saveReport() {
-    if (firebaseInitialized && auth.currentUser) {
-        saveReportToFirebase();
-    } else {
-        // Original local save
-        state.currentDate = document.getElementById('current-date-input').value;
-        state.currentTime = document.getElementById('current-time-input').value;
-        state.shift = document.getElementById('shift-select').value;
-        state.inspector = document.getElementById('inspector-input').value;
-        
-        if (!state.inspector || !state.shift) {
-            showStatus('warning', '⚠ Please fill inspector name and shift');
-            return;
-        }
-        
-        const timestamp = new Date().toISOString();
-        const report = {
-            timestamp,
-            date: state.currentDate,
-            time: state.currentTime,
-            shift: state.shift,
-            inspector: state.inspector,
-            data: { ...state.data },
-        };
-        
-        const reports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
-        reports.push(report);
-        localStorage.setItem('airportCleanlinessReports', JSON.stringify(reports));
-        state.savedReports = reports;
-        
-        showStatus('success', '✓ Report saved to Local Storage');
-    }
-}
-
-// Modified init function to include Firebase
-function init() {
-    // Set current date and time
-    const now = new Date();
-    state.currentDate = now.toISOString().split('T')[0];
-    state.currentTime = now.toTimeString().slice(0, 5);
-    
-    // Initialize form fields
-    document.getElementById('current-date-input').value = state.currentDate;
-    document.getElementById('current-time-input').value = state.currentTime;
-    document.getElementById('current-date').textContent = formatDate(now);
-    document.getElementById('current-time').textContent = formatTime(now);
-    
-    // Initialize data structure
-    initializeData();
-    
-    // Initialize Firebase
-    initializeFirebase();
-    
-    // Load saved reports from localStorage (will be merged with Firebase data on login)
-    loadSavedReports();
-    
-    // Update stats
-    updateStats();
-    
-    // Render areas
-    renderAreas();
-    
-    // Update time every minute
-    setInterval(updateDateTime, 60000);
-    
-    // Check if user was previously logged in
-    const savedLogin = localStorage.getItem('airportCleanlinessLoggedIn');
-    if (savedLogin === 'true') {
-        handleLoginWithFirebase(true);
-    }
-}
-
-// Update the login button onclick
-// Change from: onclick="handleLogin()"
-// To: onclick="handleLoginWithFirebase()"
-
-// Also update the keypress handler
-function handleLoginKeyPress(event) {
-    if (event.key === 'Enter') {
-        handleLoginWithFirebase();
-    }
-}
-        // Application State
-        const state = {
-            isLoggedIn: false,
-            viewMode: 'entry',
-            currentDate: '',
-            currentTime: '',
-            shift: '',
-            inspector: '',
-            data: {},
-            savedReports: [],
-            expandedSections: {},
-            areas: [
-                {
-                    id: "apron",
-                    name: "✈️ Apron Area",
-                    locations: [
-                        "Apron Area North Side",
-                        "Apron Area South Side",
-                        "Apron Toilet North Side",
-                        "Apron Toilet South Side",
-                        "Bridge Stairs Cleanliness",
-                    ],
-                    hasDustbins: true,
-                    hasWalls: true,
-                    hasToilets: true,
-                },
-                {
-                    id: "international",
-                    name: "🌍 International Arrival",
-                    locations: [
-                        "Immigration Area",
-                        "Intl. Arrival Hall",
-                        "Gents Toilet",
-                        "Ladies Toilet",
-                        "Wheelchair Toilet",
-                        "Belts Area",
-                    ],
-                    hasDustbins: true,
-                    hasWalls: true,
-                    hasToilets: true,
-                    hasFIACounters: true,
-                    hasConveyorBelt: true,
-                },
-                {
-                    id: "domestic",
-                    name: "🏠 Domestic Arrival",
-                    locations: [
-                        "Dom. Arrival Hall",
-                        "Gents Toilet",
-                        "Ladies Toilet",
-                        "Wheelchair Toilet",
-                        "Belts Area",
-                    ],
-                    hasDustbins: true,
-                    hasWalls: true,
-                    hasToilets: true,
-                    hasConveyorBelt: true,
-                },
-                {
-                    id: "concourse",
-                    name: "🏛️ Concourse Hall",
-                    locations: [
-                        "Concourse North Side",
-                        "Concourse South Side",
-                        "Gents Toilet",
-                        "Ladies Toilet",
-                        "Wheelchair Toilet",
-                    ],
-                    hasDustbins: true,
-                    hasWalls: true,
-                    hasToilets: true,
-                },
-                {
-                    id: "parking",
-                    name: "🚗 Parking & Roads",
-                    locations: [
-                        "Parking Area North",
-                        "Parking Area South",
-                        "Parking Central",
-                        "Entry/Exit Points",
-                    ],
-                    hasDustbins: true,
-                },
-                {
-                    id: "level0",
-                    name: "🏢 Level 0 - Complete Area",
-                    locations: [
-                        "Concourse Hall Level 0 (General)",
-                        "Concourse Hall - Gents Toilet",
-                        "Concourse Hall - Ladies Toilet",
-                        "Concourse Hall - Wheelchair Toilet",
-                        "Web Cleaning North Section",
-                        "Web Cleaning South Section",
-                        "Staircases Level 0",
-                        "Corridors & Passageways",
-                    ],
-                    hasDustbins: true,
-                    hasWalls: true,
-                    hasToilets: true,
-                    hasWebClean: true,
-                    isLevel0: true,
-                },
-            ]
-        };
-
-        // Constants
-        const SHARED_EMAIL = "cleanliness@airport.com";
-        const SHARED_PASSWORD = "Clean2024!";
-
-        // DOM Elements
-        const loginScreen = document.getElementById('login-screen');
-        const mainApp = document.getElementById('main-app');
-        const loginStatus = document.getElementById('login-status');
-        const saveStatus = document.getElementById('save-status');
-        const entryView = document.getElementById('entry-view');
-        const reportsView = document.getElementById('reports-view');
-        const areasContainer = document.getElementById('areas-container');
-        const reportsContainer = document.getElementById('reports-container');
-        const reportsTitle = document.getElementById('reports-title');
-
-        // Initialize the application
-        function init() {
-            // Set current date and time
-            const now = new Date();
-            state.currentDate = now.toISOString().split('T')[0];
-            state.currentTime = now.toTimeString().slice(0, 5);
-            
-            // Initialize form fields
-            document.getElementById('current-date-input').value = state.currentDate;
-            document.getElementById('current-time-input').value = state.currentTime;
-            document.getElementById('current-date').textContent = formatDate(now);
-            document.getElementById('current-time').textContent = formatTime(now);
-            
-            // Initialize data structure
-            initializeData();
-            
-            // Load saved reports from localStorage
-            loadSavedReports();
-            
-            // Update stats
-            updateStats();
-            
-            // Render areas
-            renderAreas();
-            
-            // Update time every minute
-            setInterval(updateDateTime, 60000);
-            
-            // Check if user was previously logged in
-            const savedLogin = localStorage.getItem('airportCleanlinessLoggedIn');
-            if (savedLogin === 'true') {
-                // Auto-login if previously logged in
-                handleLogin(true);
-            }
-        }
-
-        // Initialize data structure
-        function initializeData() {
-            const newData = {};
-            state.areas.forEach((area) => {
-                area.locations.forEach((loc) => {
-                    const key = `${area.id}-${loc.replace(/\s+/g, "_")}`;
-                    newData[key] = {
-                        status: "pending",
-                        score: "",
-                        deepClean: false,
-                        routineClean: false,
-                        manpower: "",
-                        material: "",
-                        statedStaff: "",
-                        actualStaff: "",
-                        notes: "",
-                    };
-                });
-
-                if (area.hasDustbins) {
-                    newData[`${area.id}-dustbins`] = {
-                        fullOfGarbage: "pending",
-                        cleaned: "pending",
-                        emptiedTimely: "pending",
-                        lastEmptied: "",
-                        notes: "",
-                    };
-                }
-
-                if (area.hasWalls) {
-                    newData[`${area.id}-walls`] = {
-                        wallsStatus: "pending",
-                        notes: "",
-                    };
-                    if (area.hasToilets) {
-                        newData[`${area.id}-toilet-walls`] = {
-                            status: "pending",
-                        };
-                    }
-                }
-
-                if (area.hasFIACounters) {
-                    newData[`${area.id}-fia-counters`] = {
-                        status: "pending",
-                        lastChecked: "",
-                        notes: "",
-                    };
-                }
-
-                if (area.hasConveyorBelt) {
-                    newData[`${area.id}-conveyor-belt`] = {
-                        status: "pending",
-                        lastCleaned: "",
-                        notes: "",
-                    };
-                }
-
-                if (area.hasWebClean) {
-                    newData[`${area.id}-web-clean`] = {
-                        status: "pending",
-                        lastCleaned: "",
-                        notes: "",
-                    };
-                }
-            });
-            state.data = newData;
-        }
-
-        // Format date for display
-        function formatDate(date) {
-            return date.toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            });
-        }
-
-        // Format time for display
-        function formatTime(date) {
-            return date.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
-        }
-
-        // Update date and time display
-        function updateDateTime() {
-            const now = new Date();
-            document.getElementById('current-date').textContent = formatDate(now);
-            document.getElementById('current-time').textContent = formatTime(now);
-        }
-
-        // Handle login
-        function handleLogin(autoLogin = false) {
-            let email, password;
-            
-            if (autoLogin) {
-                email = SHARED_EMAIL;
-                password = SHARED_PASSWORD;
+        if (type === 'success' || type === 'login') {
+            if (message.includes('✓')) {
+                statusDiv.classList.add('bg-green-50', 'text-green-700');
             } else {
-                email = document.getElementById('login-email').value;
-                password = document.getElementById('login-password').value;
+                statusDiv.classList.add('bg-blue-50', 'text-blue-700');
             }
-            
-            if (email === SHARED_EMAIL && password === SHARED_PASSWORD) {
-                state.isLoggedIn = true;
-                
-                // Save login state to localStorage
-                localStorage.setItem('airportCleanlinessLoggedIn', 'true');
-                
-                // Switch to main app
-                loginScreen.classList.add('hidden');
-                mainApp.classList.remove('hidden');
-                
-                showStatus('success', '✓ Logged in successfully');
-            } else {
-                showStatus('error', '✗ Invalid credentials');
-            }
+        } else if (type === 'error' || message.includes('✗')) {
+            statusDiv.classList.add('bg-red-50', 'text-red-700');
+        } else if (type === 'warning' || message.includes('⚠')) {
+            statusDiv.classList.add('bg-yellow-50', 'text-yellow-700');
         }
+        
+        statusDiv.classList.remove('hidden');
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+        }, 3000);
+    }
 
-        // Handle login key press
-        function handleLoginKeyPress(event) {
-            if (event.key === 'Enter') {
-                handleLogin();
-            }
+    // Set view mode
+    function setViewMode(mode) {
+        state.viewMode = mode;
+        
+        // Update button states
+        document.getElementById('btn-entry').className = 
+            mode === 'entry' 
+                ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+        
+        document.getElementById('btn-daily').className = 
+            mode === 'daily' 
+                ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+        
+        document.getElementById('btn-weekly').className = 
+            mode === 'weekly' 
+                ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+        
+        document.getElementById('btn-monthly').className = 
+            mode === 'monthly' 
+                ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+        
+        if (mode === 'entry') {
+            entryView.classList.remove('hidden');
+            reportsView.classList.add('hidden');
+        } else {
+            entryView.classList.add('hidden');
+            reportsView.classList.remove('hidden');
+            renderReports(mode);
         }
+    }
 
-        // Handle logout
-        function handleLogout() {
-            state.isLoggedIn = false;
-            localStorage.removeItem('airportCleanlinessLoggedIn');
-            mainApp.classList.add('hidden');
-            loginScreen.classList.remove('hidden');
-            
-            // Clear login form
-            document.getElementById('login-email').value = '';
-            document.getElementById('login-password').value = '';
-        }
+    // Render all areas
+    function renderAreas() {
+        areasContainer.innerHTML = '';
+        
+        state.areas.forEach(area => {
+            const areaElement = document.createElement('div');
+            areaElement.className = 'border rounded-lg overflow-hidden print-section';
+            areaElement.innerHTML = `
+                <div 
+                    onclick="toggleSection('${area.id}')" 
+                    class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 cursor-pointer flex justify-between items-center smooth-transition hover:from-blue-600 hover:to-indigo-600"
+                >
+                    <span class="font-semibold">${area.name}</span>
+                    <span>
+                        <i class="fas fa-chevron-${state.expandedSections[area.id] ? 'down' : 'right'}"></i>
+                    </span>
+                </div>
+                <div id="area-content-${area.id}" class="${state.expandedSections[area.id] ? '' : 'hidden'}">
+                    ${renderAreaContent(area)}
+                </div>
+            `;
+            areasContainer.appendChild(areaElement);
+        });
+    }
 
-        // Show status message
-        function showStatus(type, message) {
-            const statusDiv = type === 'login' ? loginStatus : saveStatus;
-            
-            statusDiv.textContent = message;
-            statusDiv.className = 'p-3 rounded-lg text-center text-sm';
-            
-            if (type === 'success' || type === 'login') {
-                if (message.includes('✓')) {
-                    statusDiv.classList.add('bg-green-50', 'text-green-700');
-                } else {
-                    statusDiv.classList.add('bg-blue-50', 'text-blue-700');
-                }
-            } else if (type === 'error' || message.includes('✗')) {
-                statusDiv.classList.add('bg-red-50', 'text-red-700');
-            } else if (type === 'warning' || message.includes('⚠')) {
-                statusDiv.classList.add('bg-yellow-50', 'text-yellow-700');
-            }
-            
-            statusDiv.classList.remove('hidden');
-            
-            // Auto-hide after 3 seconds
-            setTimeout(() => {
-                statusDiv.classList.add('hidden');
-            }, 3000);
-        }
-
-        // Set view mode
-        function setViewMode(mode) {
-            state.viewMode = mode;
-            
-            // Update button states
-            document.getElementById('btn-entry').className = 
-                mode === 'entry' 
-                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
-                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
-            
-            document.getElementById('btn-daily').className = 
-                mode === 'daily' 
-                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
-                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
-            
-            document.getElementById('btn-weekly').className = 
-                mode === 'weekly' 
-                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
-                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
-            
-            document.getElementById('btn-monthly').className = 
-                mode === 'monthly' 
-                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
-                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
-            
-            if (mode === 'entry') {
-                entryView.classList.remove('hidden');
-                reportsView.classList.add('hidden');
-            } else {
-                entryView.classList.add('hidden');
-                reportsView.classList.remove('hidden');
-                renderReports(mode);
-            }
-        }
-
-        // Render all areas
-        function renderAreas() {
-            areasContainer.innerHTML = '';
-            
-            state.areas.forEach(area => {
-                const areaElement = document.createElement('div');
-                areaElement.className = 'border rounded-lg overflow-hidden print-section';
-                areaElement.innerHTML = `
-                    <div 
-                        onclick="toggleSection('${area.id}')" 
-                        class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 cursor-pointer flex justify-between items-center smooth-transition hover:from-blue-600 hover:to-indigo-600"
-                    >
-                        <span class="font-semibold">${area.name}</span>
-                        <span>
-                            <i class="fas fa-chevron-${state.expandedSections[area.id] ? 'down' : 'right'}"></i>
-                        </span>
+    // Render area content
+    function renderAreaContent(area) {
+        let content = '<div class="p-4 space-y-4">';
+        
+        // Walls Section
+        if (area.hasWalls) {
+            const wallsData = state.data[`${area.id}-walls`] || {};
+            content += `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="font-semibold mb-3 text-blue-800 flex items-center gap-2">
+                        <i class="fas fa-grip-lines"></i>
+                        <span>Walls Condition</span>
                     </div>
-                    <div id="area-content-${area.id}" class="${state.expandedSections[area.id] ? '' : 'hidden'}">
-                        ${renderAreaContent(area)}
+                    <div class="flex flex-wrap gap-4 mb-3">
+                        <label class="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="${area.id}-walls"
+                                value="clean"
+                                ${wallsData.wallsStatus === 'clean' ? 'checked' : ''}
+                                onchange="updateData('${area.id}-walls', 'wallsStatus', 'clean')"
+                                class="h-4 w-4"
+                            />
+                            <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="${area.id}-walls"
+                                value="dirty"
+                                ${wallsData.wallsStatus === 'dirty' ? 'checked' : ''}
+                                onchange="updateData('${area.id}-walls', 'wallsStatus', 'dirty')"
+                                class="h-4 w-4"
+                            />
+                            <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
+                        </label>
                     </div>
-                `;
-                areasContainer.appendChild(areaElement);
-            });
+                    <div>
+                        <textarea
+                            onchange="updateData('${area.id}-walls', 'notes', this.value)"
+                            class="w-full px-3 py-2 border rounded text-sm"
+                            placeholder="Walls condition notes..."
+                            rows="2"
+                        >${wallsData.notes || ''}</textarea>
+                    </div>
+                </div>
+            `;
         }
 
-        // Render area content
-        function renderAreaContent(area) {
-            let content = '<div class="p-4 space-y-4">';
-            
-            // Walls Section
-            if (area.hasWalls) {
-                const wallsData = state.data[`${area.id}-walls`] || {};
-                content += `
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div class="font-semibold mb-3 text-blue-800 flex items-center gap-2">
-                            <i class="fas fa-grip-lines"></i>
-                            <span>Walls Condition</span>
-                        </div>
-                        <div class="flex flex-wrap gap-4 mb-3">
-                            <label class="flex items-center gap-2">
-                                <input
-                                    type="radio"
-                                    name="${area.id}-walls"
-                                    value="clean"
-                                    ${wallsData.wallsStatus === 'clean' ? 'checked' : ''}
-                                    onchange="updateData('${area.id}-walls', 'wallsStatus', 'clean')"
-                                    class="h-4 w-4"
-                                />
-                                <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
-                            </label>
-                            <label class="flex items-center gap-2">
-                                <input
-                                    type="radio"
-                                    name="${area.id}-walls"
-                                    value="dirty"
-                                    ${wallsData.wallsStatus === 'dirty' ? 'checked' : ''}
-                                    onchange="updateData('${area.id}-walls', 'wallsStatus', 'dirty')"
-                                    class="h-4 w-4"
-                                />
-                                <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
-                            </label>
+        // Toilet Walls Section
+        if (area.hasToilets && area.id !== "level0") {
+            const toiletWallsData = state.data[`${area.id}-toilet-walls`] || {};
+            content += `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="font-semibold mb-3 text-green-800 flex items-center gap-2">
+                        <i class="fas fa-restroom"></i>
+                        <span>Toilet Walls Condition</span>
+                    </div>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="${area.id}-toilet-walls"
+                                value="clean"
+                                ${toiletWallsData.status === 'clean' ? 'checked' : ''}
+                                onchange="updateData('${area.id}-toilet-walls', 'status', 'clean')"
+                                class="h-4 w-4"
+                            />
+                            <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="${area.id}-toilet-walls"
+                                value="dirty"
+                                ${toiletWallsData.status === 'dirty' ? 'checked' : ''}
+                                onchange="updateData('${area.id}-toilet-walls', 'status', 'dirty')"
+                                class="h-4 w-4"
+                            />
+                            <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }
+
+        // FIA Counters Section
+        if (area.hasFIACounters) {
+            const fiaData = state.data[`${area.id}-fia-counters`] || {};
+            content += `
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                    <div class="font-semibold mb-3 text-emerald-800 flex items-center gap-2">
+                        <i class="fas fa-passport"></i>
+                        <span>Immigration FIA Counters</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs mb-1">Status</label>
+                            <select
+                                onchange="updateData('${area.id}-fia-counters', 'status', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm ${getStatusClass(fiaData.status)}"
+                            >
+                                <option value="pending" ${fiaData.status === 'pending' ? 'selected' : ''}><i class="fas fa-clock mr-1"></i>Pending</option>
+                                <option value="excellent" ${fiaData.status === 'excellent' ? 'selected' : ''}><i class="fas fa-check-circle mr-1"></i>Excellent</option>
+                                <option value="good" ${fiaData.status === 'good' ? 'selected' : ''}><i class="fas fa-thumbs-up mr-1"></i>Good</option>
+                                <option value="fair" ${fiaData.status === 'fair' ? 'selected' : ''}><i class="fas fa-exclamation-triangle mr-1"></i>Fair</option>
+                                <option value="poor" ${fiaData.status === 'poor' ? 'selected' : ''}><i class="fas fa-times-circle mr-1"></i>Poor</option>
+                            </select>
                         </div>
                         <div>
-                            <textarea
-                                onchange="updateData('${area.id}-walls', 'notes', this.value)"
-                                class="w-full px-3 py-2 border rounded text-sm"
-                                placeholder="Walls condition notes..."
-                                rows="2"
-                            >${wallsData.notes || ''}</textarea>
+                            <label class="block text-xs mb-1">Last Checked</label>
+                            <input
+                                type="datetime-local"
+                                value="${fiaData.lastChecked || ''}"
+                                onchange="updateData('${area.id}-fia-counters', 'lastChecked', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm"
+                            />
                         </div>
                     </div>
-                `;
-            }
-
-            // Toilet Walls Section
-            if (area.hasToilets && area.id !== "level0") {
-                const toiletWallsData = state.data[`${area.id}-toilet-walls`] || {};
-                content += `
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div class="font-semibold mb-3 text-green-800 flex items-center gap-2">
-                            <i class="fas fa-restroom"></i>
-                            <span>Toilet Walls Condition</span>
-                        </div>
-                        <div class="flex flex-wrap gap-4">
-                            <label class="flex items-center gap-2">
-                                <input
-                                    type="radio"
-                                    name="${area.id}-toilet-walls"
-                                    value="clean"
-                                    ${toiletWallsData.status === 'clean' ? 'checked' : ''}
-                                    onchange="updateData('${area.id}-toilet-walls', 'status', 'clean')"
-                                    class="h-4 w-4"
-                                />
-                                <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
-                            </label>
-                            <label class="flex items-center gap-2">
-                                <input
-                                    type="radio"
-                                    name="${area.id}-toilet-walls"
-                                    value="dirty"
-                                    ${toiletWallsData.status === 'dirty' ? 'checked' : ''}
-                                    onchange="updateData('${area.id}-toilet-walls', 'status', 'dirty')"
-                                    class="h-4 w-4"
-                                />
-                                <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
-                            </label>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // FIA Counters Section
-            if (area.hasFIACounters) {
-                const fiaData = state.data[`${area.id}-fia-counters`] || {};
-                content += `
-                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                        <div class="font-semibold mb-3 text-emerald-800 flex items-center gap-2">
-                            <i class="fas fa-passport"></i>
-                            <span>Immigration FIA Counters</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                            <div>
-                                <label class="block text-xs mb-1">Status</label>
-                                <select
-                                    onchange="updateData('${area.id}-fia-counters', 'status', this.value)"
-                                    class="w-full px-2 py-1 border rounded text-sm ${getStatusClass(fiaData.status)}"
-                                >
-                                    <option value="pending" ${fiaData.status === 'pending' ? 'selected' : ''}><i class="fas fa-clock mr-1"></i>Pending</option>
-                                    <option value="excellent" ${fiaData.status === 'excellent' ? 'selected' : ''}><i class="fas fa-check-circle mr-1"></i>Excellent</option>
-                                    <option value="good" ${fiaData.status === 'good' ? 'selected' : ''}><i class="fas fa-thumbs-up mr-1"></i>Good</option>
-                                    <option value="fair" ${fiaData.status === 'fair' ? 'selected' : ''}><i class="fas fa-exclamation-triangle mr-1"></i>Fair</option>
-                                    <option value="poor" ${fiaData.status === 'poor' ? 'selected' : ''}><i class="fas fa-times-circle mr-1"></i>Poor</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1">Last Checked</label>
-                                <input
-                                    type="datetime-local"
-                                    value="${fiaData.lastChecked || ''}"
-                                    onchange="updateData('${area.id}-fia-counters', 'lastChecked', this.value)"
-                                    class="w-full px-2 py-1 border rounded text-sm"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <textarea
-                                onchange="updateData('${area.id}-fia-counters', 'notes', this.value)"
-                                class="w-full px-3 py-2 border rounded text-sm"
-                                placeholder="FIA counters notes..."
-                                rows="2"
-                            >${fiaData.notes || ''}</textarea>
+                    <div>
+                        <textarea
+                            onchange="updateData('${area.id}-fia-counters', 'notes', this.value)"
+                            class="w-full px-3 py-2 border rounded text-sm"
+                            placeholder="FIA counters notes..."
+                            rows="2"
+                        >${fiaData.notes || ''}</textarea>
                         </div>
                     </div>
                 `;
@@ -1623,7 +1352,7 @@ function handleLoginKeyPress(event) {
             // Update state
             state.savedReports = reports;
             
-            showStatus('success', '✓ Report saved successfully!');
+            showStatus('success', '✓ Report saved successfully to Local Storage!');
             
             // Clear form after saving if desired
             // clearForm();
