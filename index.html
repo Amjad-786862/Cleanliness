@@ -1,0 +1,2109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airport Cleanliness Inspection System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Add Firebase to the head section -->
+<head>
+    <!-- Existing head content... -->
+    
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <style>
+        /* Existing styles... */
+    </style>
+</head>
+    <style>
+        /* Custom styles to enhance the design */
+        .status-excellent { background-color: #10b981 !important; color: white; }
+        .status-good { background-color: #3b82f6 !important; color: white; }
+        .status-fair { background-color: #f59e0b !important; color: white; }
+        .status-poor { background-color: #ef4444 !important; color: white; }
+        .status-pending { background-color: #6b7280 !important; color: white; }
+        
+        .smooth-transition { transition: all 0.3s ease; }
+        .shadow-custom { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* Print styles */
+        @media print {
+            .no-print { display: none !important; }
+            .print-section { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="app" class="min-h-screen">
+        <!-- Login Screen -->
+        <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
+                <div class="text-center mb-6">
+                    <h1 class="text-3xl font-bold text-blue-600 mb-2">
+                        <i class="fas fa-plane-departure mr-2"></i>Airport Cleanliness
+                    </h1>
+                    <p class="text-gray-600">Inspection & Monitoring System</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-envelope mr-1"></i> Email
+                        </label>
+                        <input
+                            type="email"
+                            id="login-email"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 smooth-transition"
+                            placeholder="cleanliness@airport.com"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-lock mr-1"></i> Password
+                        </label>
+                        <input
+                            type="password"
+                            id="login-password"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 smooth-transition"
+                            placeholder="Enter password"
+                            onkeypress="handleLoginKeyPress(event)"
+                        />
+                    </div>
+
+                    <button
+                        onclick="handleLogin()"
+                        class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold smooth-transition shadow-md hover:shadow-lg"
+                    >
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </button>
+                </div>
+
+                <div id="login-status" class="mt-4 p-3 rounded-lg text-center text-sm hidden"></div>
+
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg text-sm">
+                    <p class="font-semibold mb-2 text-gray-700">
+                        <i class="fas fa-info-circle mr-1"></i> Shared Credentials:
+                    </p>
+                    <p class="text-gray-600"><i class="fas fa-envelope mr-2"></i>Email: cleanliness@airport.com</p>
+                    <p class="text-gray-600"><i class="fas fa-key mr-2"></i>Password: Clean2024!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App (Hidden Initially) -->
+        <div id="main-app" class="hidden">
+            <!-- Header -->
+            <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sticky top-0 z-50 shadow-lg">
+                <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
+                    <div class="mb-2 md:mb-0">
+                        <h1 class="text-2xl font-bold"><i class="fas fa-plane-departure mr-2"></i>Airport Cleanliness</h1>
+                        <p class="text-sm opacity-90">Daily Inspection & Monitoring System</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-right hidden md:block">
+                            <div id="current-date" class="font-medium"></div>
+                            <div id="current-time" class="text-sm opacity-90"></div>
+                        </div>
+                        <button
+                            onclick="handleLogout()"
+                            class="flex items-center gap-2 bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 font-semibold smooth-transition shadow-sm"
+                        >
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="hidden md:inline">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="max-w-7xl mx-auto p-4">
+                <!-- View Mode Selector -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <div class="flex flex-wrap gap-2 mb-6 no-print">
+                        <button
+                            onclick="setViewMode('entry')"
+                            id="btn-entry"
+                            class="px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white"
+                        >
+                            <i class="fas fa-clipboard-list mr-2"></i>New Entry
+                        </button>
+                        <button
+                            onclick="setViewMode('daily')"
+                            id="btn-daily"
+                            class="px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300"
+                        >
+                            <i class="fas fa-calendar-day mr-2"></i>Daily View
+                        </button>
+                        <button
+                            onclick="setViewMode('weekly')"
+                            id="btn-weekly"
+                            class="px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300"
+                        >
+                            <i class="fas fa-calendar-week mr-2"></i>Weekly View
+                        </button>
+                        <button
+                            onclick="setViewMode('monthly')"
+                            id="btn-monthly"
+                            class="px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300"
+                        >
+                            <i class="fas fa-calendar-alt mr-2"></i>Monthly View
+                        </button>
+                        <button
+                            onclick="printReport()"
+                            class="px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300 ml-auto"
+                        >
+                            <i class="fas fa-print mr-2"></i>Print
+                        </button>
+                    </div>
+
+                    <!-- Status Message -->
+                    <div id="save-status" class="p-3 rounded-lg mb-4 hidden"></div>
+
+                    <!-- Entry View -->
+                    <div id="entry-view">
+                        <!-- Inspector Info -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 print-section">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    <i class="fas fa-calendar-alt mr-1"></i> Date
+                                </label>
+                                <input
+                                    type="date"
+                                    id="current-date-input"
+                                    class="w-full px-3 py-2 border rounded-lg smooth-transition focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    <i class="fas fa-clock mr-1"></i> Time
+                                </label>
+                                <input
+                                    type="time"
+                                    id="current-time-input"
+                                    class="w-full px-3 py-2 border rounded-lg smooth-transition focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    <i class="fas fa-clock mr-1"></i> Shift
+                                </label>
+                                <select
+                                    id="shift-select"
+                                    class="w-full px-3 py-2 border rounded-lg smooth-transition focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Select Shift</option>
+                                    <option value="morning">Morning (8 AM - 2 PM)</option>
+                                    <option value="evening">Evening (2 PM - 8 PM)</option>
+                                    <option value="night">Night (8 PM - 8 AM)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">
+                                    <i class="fas fa-user mr-1"></i> Inspector
+                                </label>
+                                <input
+                                    type="text"
+                                    id="inspector-input"
+                                    class="w-full px-3 py-2 border rounded-lg smooth-transition focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Enter name"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Stats Dashboard -->
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 print-section">
+                            <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-md">
+                                <div id="excellent-count" class="text-2xl font-bold">0</div>
+                                <div class="text-sm">Excellent</div>
+                            </div>
+                            <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-md">
+                                <div id="good-count" class="text-2xl font-bold">0</div>
+                                <div class="text-sm">Good</div>
+                            </div>
+                            <div class="bg-yellow-500 text-white p-4 rounded-lg text-center shadow-md">
+                                <div id="fair-count" class="text-2xl font-bold">0</div>
+                                <div class="text-sm">Fair</div>
+                            </div>
+                            <div class="bg-red-500 text-white p-4 rounded-lg text-center shadow-md">
+                                <div id="poor-count" class="text-2xl font-bold">0</div>
+                                <div class="text-sm">Poor</div>
+                            </div>
+                            <div class="bg-indigo-500 text-white p-4 rounded-lg text-center shadow-md">
+                                <div id="avg-score" class="text-2xl font-bold">0%</div>
+                                <div class="text-sm">Avg Score</div>
+                            </div>
+                        </div>
+
+                        <!-- Areas Container -->
+                        <div id="areas-container" class="space-y-4">
+                            <!-- Areas will be dynamically inserted here -->
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-6 flex flex-wrap gap-3 no-print">
+                            <button
+                                onclick="saveReport()"
+                                class="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold smooth-transition shadow-md hover:shadow-lg"
+                            >
+                                <i class="fas fa-save"></i>
+                                Save Report
+                            </button>
+                            <button
+                                onclick="exportCSV()"
+                                class="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold smooth-transition shadow-md hover:shadow-lg"
+                            >
+                                <i class="fas fa-download"></i>
+                                Export CSV
+                            </button>
+                            <button
+                                onclick="clearForm()"
+                                class="flex items-center gap-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-semibold smooth-transition shadow-md hover:shadow-lg"
+                            >
+                                <i class="fas fa-trash-alt"></i>
+                                Clear Form
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Reports View -->
+                    <div id="reports-view" class="hidden">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+                            <h2 id="reports-title" class="text-xl font-bold mb-2 md:mb-0"></h2>
+                            <button
+                                onclick="exportAllReports()"
+                                class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 smooth-transition shadow-sm"
+                            >
+                                <i class="fas fa-download"></i>
+                                Export CSV
+                            </button>
+                        </div>
+
+                        <div id="reports-container" class="space-y-4">
+                            <!-- Reports will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <footer class="text-center text-gray-600 text-sm mt-8 pb-4 no-print">
+                    <p>Airport Cleanliness Inspection System v1.0 | Data is stored locally in your browser</p>
+                </footer>
+            </main>
+        </div>
+    </div>
+
+    <script>
+    // ==================== FIREBASE CONFIGURATION ====================
+// Replace with your Firebase configuration
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Initialize Firebase
+let firebaseInitialized = false;
+let db = null;
+let auth = null;
+
+function initializeFirebase() {
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        auth = firebase.auth();
+        firebaseInitialized = true;
+        console.log("Firebase initialized successfully");
+        return true;
+    } catch (error) {
+        console.error("Firebase initialization error:", error);
+        return false;
+    }
+}
+
+// Modified login function to use Firebase
+async function handleLoginWithFirebase(autoLogin = false) {
+    let email, password;
+    
+    if (autoLogin) {
+        email = SHARED_EMAIL;
+        password = SHARED_PASSWORD;
+    } else {
+        email = document.getElementById('login-email').value;
+        password = document.getElementById('login-password').value;
+    }
+    
+    try {
+        // Try Firebase authentication first
+        if (firebaseInitialized) {
+            await auth.signInWithEmailAndPassword(email, password);
+            state.isLoggedIn = true;
+            localStorage.setItem('airportCleanlinessLoggedIn', 'true');
+            
+            // Load data from Firebase
+            await loadDataFromFirebase();
+            
+            loginScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+            showStatus('success', '✓ Logged in successfully (Cloud Sync Enabled)');
+            return;
+        }
+    } catch (firebaseError) {
+        console.log("Firebase login failed, using local fallback:", firebaseError);
+    }
+    
+    // Fallback to local authentication
+    if (email === SHARED_EMAIL && password === SHARED_PASSWORD) {
+        state.isLoggedIn = true;
+        localStorage.setItem('airportCleanlinessLoggedIn', 'true');
+        
+        loginScreen.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+        showStatus('success', '✓ Logged in successfully (Local Storage Only)');
+    } else {
+        showStatus('error', '✗ Invalid credentials');
+    }
+}
+
+// Save data to Firebase
+async function saveReportToFirebase() {
+    if (!firebaseInitialized) return false;
+    
+    try {
+        state.currentDate = document.getElementById('current-date-input').value;
+        state.currentTime = document.getElementById('current-time-input').value;
+        state.shift = document.getElementById('shift-select').value;
+        state.inspector = document.getElementById('inspector-input').value;
+        
+        if (!state.inspector || !state.shift) {
+            showStatus('warning', '⚠ Please fill inspector name and shift');
+            return false;
+        }
+        
+        const report = {
+            timestamp: new Date().toISOString(),
+            date: state.currentDate,
+            time: state.currentTime,
+            shift: state.shift,
+            inspector: state.inspector,
+            data: { ...state.data },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // Save to Firebase
+        await db.collection('cleanlinessReports').add(report);
+        
+        // Also save locally for offline access
+        const reports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
+        reports.push(report);
+        localStorage.setItem('airportCleanlinessReports', JSON.stringify(reports));
+        state.savedReports = reports;
+        
+        showStatus('success', '✓ Report saved to Cloud & Local Storage!');
+        return true;
+    } catch (error) {
+        console.error("Error saving to Firebase:", error);
+        showStatus('warning', '⚠ Cloud save failed, saving locally only');
+        
+        // Fallback to local save
+        saveReport();
+        return false;
+    }
+}
+
+// Load data from Firebase
+async function loadDataFromFirebase() {
+    if (!firebaseInitialized) return;
+    
+    try {
+        const snapshot = await db.collection('cleanlinessReports')
+            .orderBy('createdAt', 'desc')
+            .limit(1000)
+            .get();
+        
+        const cloudReports = [];
+        snapshot.forEach(doc => {
+            cloudReports.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Merge with local data
+        const localReports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
+        
+        // Create a map to avoid duplicates (by timestamp)
+        const reportMap = new Map();
+        
+        // Add local reports
+        localReports.forEach(report => {
+            if (report.timestamp) {
+                reportMap.set(report.timestamp, report);
+            }
+        });
+        
+        // Add cloud reports (will overwrite local if same timestamp)
+        cloudReports.forEach(report => {
+            if (report.timestamp) {
+                reportMap.set(report.timestamp, report);
+            }
+        });
+        
+        // Convert back to array and sort
+        const mergedReports = Array.from(reportMap.values())
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Save merged data
+        localStorage.setItem('airportCleanlinessReports', JSON.stringify(mergedReports));
+        state.savedReports = mergedReports;
+        
+        console.log(`Loaded ${cloudReports.length} cloud reports, ${localReports.length} local reports`);
+        
+        if (state.viewMode !== 'entry') {
+            renderReports(state.viewMode);
+        }
+    } catch (error) {
+        console.error("Error loading from Firebase:", error);
+    }
+}
+
+// Modified saveReport function to use Firebase
+function saveReport() {
+    if (firebaseInitialized && auth.currentUser) {
+        saveReportToFirebase();
+    } else {
+        // Original local save
+        state.currentDate = document.getElementById('current-date-input').value;
+        state.currentTime = document.getElementById('current-time-input').value;
+        state.shift = document.getElementById('shift-select').value;
+        state.inspector = document.getElementById('inspector-input').value;
+        
+        if (!state.inspector || !state.shift) {
+            showStatus('warning', '⚠ Please fill inspector name and shift');
+            return;
+        }
+        
+        const timestamp = new Date().toISOString();
+        const report = {
+            timestamp,
+            date: state.currentDate,
+            time: state.currentTime,
+            shift: state.shift,
+            inspector: state.inspector,
+            data: { ...state.data },
+        };
+        
+        const reports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
+        reports.push(report);
+        localStorage.setItem('airportCleanlinessReports', JSON.stringify(reports));
+        state.savedReports = reports;
+        
+        showStatus('success', '✓ Report saved to Local Storage');
+    }
+}
+
+// Modified init function to include Firebase
+function init() {
+    // Set current date and time
+    const now = new Date();
+    state.currentDate = now.toISOString().split('T')[0];
+    state.currentTime = now.toTimeString().slice(0, 5);
+    
+    // Initialize form fields
+    document.getElementById('current-date-input').value = state.currentDate;
+    document.getElementById('current-time-input').value = state.currentTime;
+    document.getElementById('current-date').textContent = formatDate(now);
+    document.getElementById('current-time').textContent = formatTime(now);
+    
+    // Initialize data structure
+    initializeData();
+    
+    // Initialize Firebase
+    initializeFirebase();
+    
+    // Load saved reports from localStorage (will be merged with Firebase data on login)
+    loadSavedReports();
+    
+    // Update stats
+    updateStats();
+    
+    // Render areas
+    renderAreas();
+    
+    // Update time every minute
+    setInterval(updateDateTime, 60000);
+    
+    // Check if user was previously logged in
+    const savedLogin = localStorage.getItem('airportCleanlinessLoggedIn');
+    if (savedLogin === 'true') {
+        handleLoginWithFirebase(true);
+    }
+}
+
+// Update the login button onclick
+// Change from: onclick="handleLogin()"
+// To: onclick="handleLoginWithFirebase()"
+
+// Also update the keypress handler
+function handleLoginKeyPress(event) {
+    if (event.key === 'Enter') {
+        handleLoginWithFirebase();
+    }
+}
+        // Application State
+        const state = {
+            isLoggedIn: false,
+            viewMode: 'entry',
+            currentDate: '',
+            currentTime: '',
+            shift: '',
+            inspector: '',
+            data: {},
+            savedReports: [],
+            expandedSections: {},
+            areas: [
+                {
+                    id: "apron",
+                    name: "✈️ Apron Area",
+                    locations: [
+                        "Apron Area North Side",
+                        "Apron Area South Side",
+                        "Apron Toilet North Side",
+                        "Apron Toilet South Side",
+                        "Bridge Stairs Cleanliness",
+                    ],
+                    hasDustbins: true,
+                    hasWalls: true,
+                    hasToilets: true,
+                },
+                {
+                    id: "international",
+                    name: "🌍 International Arrival",
+                    locations: [
+                        "Immigration Area",
+                        "Intl. Arrival Hall",
+                        "Gents Toilet",
+                        "Ladies Toilet",
+                        "Wheelchair Toilet",
+                        "Belts Area",
+                    ],
+                    hasDustbins: true,
+                    hasWalls: true,
+                    hasToilets: true,
+                    hasFIACounters: true,
+                    hasConveyorBelt: true,
+                },
+                {
+                    id: "domestic",
+                    name: "🏠 Domestic Arrival",
+                    locations: [
+                        "Dom. Arrival Hall",
+                        "Gents Toilet",
+                        "Ladies Toilet",
+                        "Wheelchair Toilet",
+                        "Belts Area",
+                    ],
+                    hasDustbins: true,
+                    hasWalls: true,
+                    hasToilets: true,
+                    hasConveyorBelt: true,
+                },
+                {
+                    id: "concourse",
+                    name: "🏛️ Concourse Hall",
+                    locations: [
+                        "Concourse North Side",
+                        "Concourse South Side",
+                        "Gents Toilet",
+                        "Ladies Toilet",
+                        "Wheelchair Toilet",
+                    ],
+                    hasDustbins: true,
+                    hasWalls: true,
+                    hasToilets: true,
+                },
+                {
+                    id: "parking",
+                    name: "🚗 Parking & Roads",
+                    locations: [
+                        "Parking Area North",
+                        "Parking Area South",
+                        "Parking Central",
+                        "Entry/Exit Points",
+                    ],
+                    hasDustbins: true,
+                },
+                {
+                    id: "level0",
+                    name: "🏢 Level 0 - Complete Area",
+                    locations: [
+                        "Concourse Hall Level 0 (General)",
+                        "Concourse Hall - Gents Toilet",
+                        "Concourse Hall - Ladies Toilet",
+                        "Concourse Hall - Wheelchair Toilet",
+                        "Web Cleaning North Section",
+                        "Web Cleaning South Section",
+                        "Staircases Level 0",
+                        "Corridors & Passageways",
+                    ],
+                    hasDustbins: true,
+                    hasWalls: true,
+                    hasToilets: true,
+                    hasWebClean: true,
+                    isLevel0: true,
+                },
+            ]
+        };
+
+        // Constants
+        const SHARED_EMAIL = "cleanliness@airport.com";
+        const SHARED_PASSWORD = "Clean2024!";
+
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const mainApp = document.getElementById('main-app');
+        const loginStatus = document.getElementById('login-status');
+        const saveStatus = document.getElementById('save-status');
+        const entryView = document.getElementById('entry-view');
+        const reportsView = document.getElementById('reports-view');
+        const areasContainer = document.getElementById('areas-container');
+        const reportsContainer = document.getElementById('reports-container');
+        const reportsTitle = document.getElementById('reports-title');
+
+        // Initialize the application
+        function init() {
+            // Set current date and time
+            const now = new Date();
+            state.currentDate = now.toISOString().split('T')[0];
+            state.currentTime = now.toTimeString().slice(0, 5);
+            
+            // Initialize form fields
+            document.getElementById('current-date-input').value = state.currentDate;
+            document.getElementById('current-time-input').value = state.currentTime;
+            document.getElementById('current-date').textContent = formatDate(now);
+            document.getElementById('current-time').textContent = formatTime(now);
+            
+            // Initialize data structure
+            initializeData();
+            
+            // Load saved reports from localStorage
+            loadSavedReports();
+            
+            // Update stats
+            updateStats();
+            
+            // Render areas
+            renderAreas();
+            
+            // Update time every minute
+            setInterval(updateDateTime, 60000);
+            
+            // Check if user was previously logged in
+            const savedLogin = localStorage.getItem('airportCleanlinessLoggedIn');
+            if (savedLogin === 'true') {
+                // Auto-login if previously logged in
+                handleLogin(true);
+            }
+        }
+
+        // Initialize data structure
+        function initializeData() {
+            const newData = {};
+            state.areas.forEach((area) => {
+                area.locations.forEach((loc) => {
+                    const key = `${area.id}-${loc.replace(/\s+/g, "_")}`;
+                    newData[key] = {
+                        status: "pending",
+                        score: "",
+                        deepClean: false,
+                        routineClean: false,
+                        manpower: "",
+                        material: "",
+                        statedStaff: "",
+                        actualStaff: "",
+                        notes: "",
+                    };
+                });
+
+                if (area.hasDustbins) {
+                    newData[`${area.id}-dustbins`] = {
+                        fullOfGarbage: "pending",
+                        cleaned: "pending",
+                        emptiedTimely: "pending",
+                        lastEmptied: "",
+                        notes: "",
+                    };
+                }
+
+                if (area.hasWalls) {
+                    newData[`${area.id}-walls`] = {
+                        wallsStatus: "pending",
+                        notes: "",
+                    };
+                    if (area.hasToilets) {
+                        newData[`${area.id}-toilet-walls`] = {
+                            status: "pending",
+                        };
+                    }
+                }
+
+                if (area.hasFIACounters) {
+                    newData[`${area.id}-fia-counters`] = {
+                        status: "pending",
+                        lastChecked: "",
+                        notes: "",
+                    };
+                }
+
+                if (area.hasConveyorBelt) {
+                    newData[`${area.id}-conveyor-belt`] = {
+                        status: "pending",
+                        lastCleaned: "",
+                        notes: "",
+                    };
+                }
+
+                if (area.hasWebClean) {
+                    newData[`${area.id}-web-clean`] = {
+                        status: "pending",
+                        lastCleaned: "",
+                        notes: "",
+                    };
+                }
+            });
+            state.data = newData;
+        }
+
+        // Format date for display
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        // Format time for display
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        // Update date and time display
+        function updateDateTime() {
+            const now = new Date();
+            document.getElementById('current-date').textContent = formatDate(now);
+            document.getElementById('current-time').textContent = formatTime(now);
+        }
+
+        // Handle login
+        function handleLogin(autoLogin = false) {
+            let email, password;
+            
+            if (autoLogin) {
+                email = SHARED_EMAIL;
+                password = SHARED_PASSWORD;
+            } else {
+                email = document.getElementById('login-email').value;
+                password = document.getElementById('login-password').value;
+            }
+            
+            if (email === SHARED_EMAIL && password === SHARED_PASSWORD) {
+                state.isLoggedIn = true;
+                
+                // Save login state to localStorage
+                localStorage.setItem('airportCleanlinessLoggedIn', 'true');
+                
+                // Switch to main app
+                loginScreen.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                
+                showStatus('success', '✓ Logged in successfully');
+            } else {
+                showStatus('error', '✗ Invalid credentials');
+            }
+        }
+
+        // Handle login key press
+        function handleLoginKeyPress(event) {
+            if (event.key === 'Enter') {
+                handleLogin();
+            }
+        }
+
+        // Handle logout
+        function handleLogout() {
+            state.isLoggedIn = false;
+            localStorage.removeItem('airportCleanlinessLoggedIn');
+            mainApp.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            
+            // Clear login form
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-password').value = '';
+        }
+
+        // Show status message
+        function showStatus(type, message) {
+            const statusDiv = type === 'login' ? loginStatus : saveStatus;
+            
+            statusDiv.textContent = message;
+            statusDiv.className = 'p-3 rounded-lg text-center text-sm';
+            
+            if (type === 'success' || type === 'login') {
+                if (message.includes('✓')) {
+                    statusDiv.classList.add('bg-green-50', 'text-green-700');
+                } else {
+                    statusDiv.classList.add('bg-blue-50', 'text-blue-700');
+                }
+            } else if (type === 'error' || message.includes('✗')) {
+                statusDiv.classList.add('bg-red-50', 'text-red-700');
+            } else if (type === 'warning' || message.includes('⚠')) {
+                statusDiv.classList.add('bg-yellow-50', 'text-yellow-700');
+            }
+            
+            statusDiv.classList.remove('hidden');
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Set view mode
+        function setViewMode(mode) {
+            state.viewMode = mode;
+            
+            // Update button states
+            document.getElementById('btn-entry').className = 
+                mode === 'entry' 
+                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+            
+            document.getElementById('btn-daily').className = 
+                mode === 'daily' 
+                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+            
+            document.getElementById('btn-weekly').className = 
+                mode === 'weekly' 
+                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+            
+            document.getElementById('btn-monthly').className = 
+                mode === 'monthly' 
+                    ? 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-blue-600 text-white' 
+                    : 'px-4 py-2 rounded-lg font-semibold smooth-transition bg-gray-200 hover:bg-gray-300';
+            
+            if (mode === 'entry') {
+                entryView.classList.remove('hidden');
+                reportsView.classList.add('hidden');
+            } else {
+                entryView.classList.add('hidden');
+                reportsView.classList.remove('hidden');
+                renderReports(mode);
+            }
+        }
+
+        // Render all areas
+        function renderAreas() {
+            areasContainer.innerHTML = '';
+            
+            state.areas.forEach(area => {
+                const areaElement = document.createElement('div');
+                areaElement.className = 'border rounded-lg overflow-hidden print-section';
+                areaElement.innerHTML = `
+                    <div 
+                        onclick="toggleSection('${area.id}')" 
+                        class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 cursor-pointer flex justify-between items-center smooth-transition hover:from-blue-600 hover:to-indigo-600"
+                    >
+                        <span class="font-semibold">${area.name}</span>
+                        <span>
+                            <i class="fas fa-chevron-${state.expandedSections[area.id] ? 'down' : 'right'}"></i>
+                        </span>
+                    </div>
+                    <div id="area-content-${area.id}" class="${state.expandedSections[area.id] ? '' : 'hidden'}">
+                        ${renderAreaContent(area)}
+                    </div>
+                `;
+                areasContainer.appendChild(areaElement);
+            });
+        }
+
+        // Render area content
+        function renderAreaContent(area) {
+            let content = '<div class="p-4 space-y-4">';
+            
+            // Walls Section
+            if (area.hasWalls) {
+                const wallsData = state.data[`${area.id}-walls`] || {};
+                content += `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="font-semibold mb-3 text-blue-800 flex items-center gap-2">
+                            <i class="fas fa-grip-lines"></i>
+                            <span>Walls Condition</span>
+                        </div>
+                        <div class="flex flex-wrap gap-4 mb-3">
+                            <label class="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="${area.id}-walls"
+                                    value="clean"
+                                    ${wallsData.wallsStatus === 'clean' ? 'checked' : ''}
+                                    onchange="updateData('${area.id}-walls', 'wallsStatus', 'clean')"
+                                    class="h-4 w-4"
+                                />
+                                <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="${area.id}-walls"
+                                    value="dirty"
+                                    ${wallsData.wallsStatus === 'dirty' ? 'checked' : ''}
+                                    onchange="updateData('${area.id}-walls', 'wallsStatus', 'dirty')"
+                                    class="h-4 w-4"
+                                />
+                                <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
+                            </label>
+                        </div>
+                        <div>
+                            <textarea
+                                onchange="updateData('${area.id}-walls', 'notes', this.value)"
+                                class="w-full px-3 py-2 border rounded text-sm"
+                                placeholder="Walls condition notes..."
+                                rows="2"
+                            >${wallsData.notes || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Toilet Walls Section
+            if (area.hasToilets && area.id !== "level0") {
+                const toiletWallsData = state.data[`${area.id}-toilet-walls`] || {};
+                content += `
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="font-semibold mb-3 text-green-800 flex items-center gap-2">
+                            <i class="fas fa-restroom"></i>
+                            <span>Toilet Walls Condition</span>
+                        </div>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="${area.id}-toilet-walls"
+                                    value="clean"
+                                    ${toiletWallsData.status === 'clean' ? 'checked' : ''}
+                                    onchange="updateData('${area.id}-toilet-walls', 'status', 'clean')"
+                                    class="h-4 w-4"
+                                />
+                                <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="${area.id}-toilet-walls"
+                                    value="dirty"
+                                    ${toiletWallsData.status === 'dirty' ? 'checked' : ''}
+                                    onchange="updateData('${area.id}-toilet-walls', 'status', 'dirty')"
+                                    class="h-4 w-4"
+                                />
+                                <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // FIA Counters Section
+            if (area.hasFIACounters) {
+                const fiaData = state.data[`${area.id}-fia-counters`] || {};
+                content += `
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                        <div class="font-semibold mb-3 text-emerald-800 flex items-center gap-2">
+                            <i class="fas fa-passport"></i>
+                            <span>Immigration FIA Counters</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-xs mb-1">Status</label>
+                                <select
+                                    onchange="updateData('${area.id}-fia-counters', 'status', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm ${getStatusClass(fiaData.status)}"
+                                >
+                                    <option value="pending" ${fiaData.status === 'pending' ? 'selected' : ''}><i class="fas fa-clock mr-1"></i>Pending</option>
+                                    <option value="excellent" ${fiaData.status === 'excellent' ? 'selected' : ''}><i class="fas fa-check-circle mr-1"></i>Excellent</option>
+                                    <option value="good" ${fiaData.status === 'good' ? 'selected' : ''}><i class="fas fa-thumbs-up mr-1"></i>Good</option>
+                                    <option value="fair" ${fiaData.status === 'fair' ? 'selected' : ''}><i class="fas fa-exclamation-triangle mr-1"></i>Fair</option>
+                                    <option value="poor" ${fiaData.status === 'poor' ? 'selected' : ''}><i class="fas fa-times-circle mr-1"></i>Poor</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">Last Checked</label>
+                                <input
+                                    type="datetime-local"
+                                    value="${fiaData.lastChecked || ''}"
+                                    onchange="updateData('${area.id}-fia-counters', 'lastChecked', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <textarea
+                                onchange="updateData('${area.id}-fia-counters', 'notes', this.value)"
+                                class="w-full px-3 py-2 border rounded text-sm"
+                                placeholder="FIA counters notes..."
+                                rows="2"
+                            >${fiaData.notes || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Conveyor Belt Section
+            if (area.hasConveyorBelt) {
+                const beltData = state.data[`${area.id}-conveyor-belt`] || {};
+                content += `
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <div class="font-semibold mb-3 text-indigo-800 flex items-center gap-2">
+                            <i class="fas fa-conveyor-belt"></i>
+                            <span>Conveyor Belt Steel Section</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-xs mb-1">Status</label>
+                                <select
+                                    onchange="updateData('${area.id}-conveyor-belt', 'status', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm ${getStatusClass(beltData.status)}"
+                                >
+                                    <option value="pending" ${beltData.status === 'pending' ? 'selected' : ''}><i class="fas fa-clock mr-1"></i>Pending</option>
+                                    <option value="excellent" ${beltData.status === 'excellent' ? 'selected' : ''}><i class="fas fa-check-circle mr-1"></i>Excellent</option>
+                                    <option value="good" ${beltData.status === 'good' ? 'selected' : ''}><i class="fas fa-thumbs-up mr-1"></i>Good</option>
+                                    <option value="fair" ${beltData.status === 'fair' ? 'selected' : ''}><i class="fas fa-exclamation-triangle mr-1"></i>Fair</option>
+                                    <option value="poor" ${beltData.status === 'poor' ? 'selected' : ''}><i class="fas fa-times-circle mr-1"></i>Poor</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">Last Cleaned</label>
+                                <input
+                                    type="datetime-local"
+                                    value="${beltData.lastCleaned || ''}"
+                                    onchange="updateData('${area.id}-conveyor-belt', 'lastCleaned', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <textarea
+                                onchange="updateData('${area.id}-conveyor-belt', 'notes', this.value)"
+                                class="w-full px-3 py-2 border rounded text-sm"
+                                placeholder="Conveyor belt notes..."
+                                rows="2"
+                            >${beltData.notes || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Web Clean Section
+            if (area.hasWebClean) {
+                const webData = state.data[`${area.id}-web-clean`] || {};
+                content += `
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <div class="font-semibold mb-3 text-purple-800 flex items-center gap-2">
+                            <i class="fas fa-spider"></i>
+                            <span>Web Cleaning Status</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-xs mb-1">Status</label>
+                                <select
+                                    onchange="updateData('${area.id}-web-clean', 'status', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm ${getWebStatusClass(webData.status)}"
+                                >
+                                    <option value="pending" ${webData.status === 'pending' ? 'selected' : ''}><i class="fas fa-clock mr-1"></i>Pending</option>
+                                    <option value="completed" ${webData.status === 'completed' ? 'selected' : ''}><i class="fas fa-check-circle mr-1"></i>Completed</option>
+                                    <option value="in-progress" ${webData.status === 'in-progress' ? 'selected' : ''}><i class="fas fa-sync-alt mr-1"></i>In Progress</option>
+                                    <option value="not-started" ${webData.status === 'not-started' ? 'selected' : ''}><i class="fas fa-pause-circle mr-1"></i>Not Started</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">Last Cleaned</label>
+                                <input
+                                    type="date"
+                                    value="${webData.lastCleaned || ''}"
+                                    onchange="updateData('${area.id}-web-clean', 'lastCleaned', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <textarea
+                                onchange="updateData('${area.id}-web-clean', 'notes', this.value)"
+                                class="w-full px-3 py-2 border rounded text-sm"
+                                placeholder="Web cleaning notes..."
+                                rows="2"
+                            >${webData.notes || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Dustbins Section
+            if (area.hasDustbins) {
+                const dustbinsData = state.data[`${area.id}-dustbins`] || {};
+                content += `
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div class="font-semibold mb-3 text-amber-800 flex items-center gap-2">
+                            <i class="fas fa-trash-alt"></i>
+                            <span>Dustbins Inspection</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                            <!-- Full of Garbage -->
+                            <div class="bg-white border border-amber-300 rounded p-3">
+                                <div class="font-medium text-amber-800 mb-2 flex items-center gap-1">
+                                    <i class="fas fa-box"></i>
+                                    <span>Full of Garbage?</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            name="${area.id}-dustbins-full"
+                                            value="yes"
+                                            ${dustbinsData.fullOfGarbage === 'yes' ? 'checked' : ''}
+                                            onchange="updateData('${area.id}-dustbins', 'fullOfGarbage', 'yes')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-green-700 text-sm"><i class="fas fa-check-circle mr-1"></i>Yes</span>
+                                    </label>
+                                    <label class="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            name="${area.id}-dustbins-full"
+                                            value="no"
+                                            ${dustbinsData.fullOfGarbage === 'no' ? 'checked' : ''}
+                                            onchange="updateData('${area.id}-dustbins', 'fullOfGarbage', 'no')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-red-700 text-sm"><i class="fas fa-times-circle mr-1"></i>No</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Cleaned -->
+                            <div class="bg-white border border-amber-300 rounded p-3">
+                                <div class="font-medium text-amber-800 mb-2 flex items-center gap-1">
+                                    <i class="fas fa-broom"></i>
+                                    <span>Properly Cleaned?</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            name="${area.id}-dustbins-cleaned"
+                                            value="yes"
+                                            ${dustbinsData.cleaned === 'yes' ? 'checked' : ''}
+                                            onchange="updateData('${area.id}-dustbins', 'cleaned', 'yes')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-green-700 text-sm"><i class="fas fa-check-circle mr-1"></i>Yes</span>
+                                    </label>
+                                    <label class="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            name="${area.id}-dustbins-cleaned"
+                                            value="no"
+                                            ${dustbinsData.cleaned === 'no' ? 'checked' : ''}
+                                            onchange="updateData('${area.id}-dustbins', 'cleaned', 'no')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-red-700 text-sm"><i class="fas fa-times-circle mr-1"></i>No</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Emptied Timely -->
+                            <div class="bg-white border border-amber-300 rounded p-3">
+                                <div class="font-medium text-amber-800 mb-2 flex items-center gap-1">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Emptied Timely?</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <label class="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            name="${area.id}-dustbins-emptied"
+                                            value="yes"
+                                            ${dustbinsData.emptiedTimely === 'yes' ? 'checked' : ''}
+                                            onchange="updateData('${area.id}-dustbins', 'emptiedTimely', 'yes')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-green-700 text-sm"><i class="fas fa-check-circle mr-1"></i>Yes</span>
+                                    </label>
+                                    <label class="flex items-center gap-1">
+                                        <input
+                                            type="radio"
+                                            name="${area.id}-dustbins-emptied"
+                                            value="no"
+                                            ${dustbinsData.emptiedTimely === 'no' ? 'checked' : ''}
+                                            onchange="updateData('${area.id}-dustbins', 'emptiedTimely', 'no')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-red-700 text-sm"><i class="fas fa-times-circle mr-1"></i>No</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Last Emptied -->
+                            <div class="bg-white border border-amber-300 rounded p-3">
+                                <div class="font-medium text-amber-800 mb-2 flex items-center gap-1">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span>Last Emptied</span>
+                                </div>
+                                <input
+                                    type="datetime-local"
+                                    value="${dustbinsData.lastEmptied || ''}"
+                                    onchange="updateData('${area.id}-dustbins', 'lastEmptied', this.value)"
+                                    class="w-full px-2 py-1 border rounded text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <textarea
+                                onchange="updateData('${area.id}-dustbins', 'notes', this.value)"
+                                class="w-full px-3 py-2 border rounded text-sm"
+                                placeholder="Dustbins notes..."
+                                rows="2"
+                            >${dustbinsData.notes || ''}</textarea>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Locations Section
+            if (area.isLevel0) {
+                // Special layout for Level 0
+                content += `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Concourse Hall Level 0 -->
+                        <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                            <div class="font-semibold mb-3 text-gray-800 border-b pb-2">
+                                <i class="fas fa-building mr-2"></i>Concourse Hall Level 0
+                            </div>
+                            ${renderLocation(area.id, "Concourse Hall Level 0 (General)")}
+                        </div>
+
+                        <!-- Toilets Level 0 -->
+                        <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                            <div class="font-semibold mb-3 text-gray-800 border-b pb-2">
+                                <i class="fas fa-restroom mr-2"></i>Toilets Level 0
+                            </div>
+                            ${renderLocation(area.id, "Concourse Hall - Gents Toilet")}
+                            ${renderLocation(area.id, "Concourse Hall - Ladies Toilet")}
+                            ${renderLocation(area.id, "Concourse Hall - Wheelchair Toilet")}
+
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                                <div class="font-semibold mb-3 text-green-800 flex items-center gap-2">
+                                    <i class="fas fa-grip-lines"></i>
+                                    <span>Toilet Walls Condition</span>
+                                </div>
+                                <div class="flex flex-wrap gap-4">
+                                    <label class="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="level0-toilet-walls"
+                                            value="clean"
+                                            ${state.data['level0-toilet-walls']?.status === 'clean' ? 'checked' : ''}
+                                            onchange="updateData('level0-toilet-walls', 'status', 'clean')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Clean</span>
+                                    </label>
+                                    <label class="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="level0-toilet-walls"
+                                            value="dirty"
+                                            ${state.data['level0-toilet-walls']?.status === 'dirty' ? 'checked' : ''}
+                                            onchange="updateData('level0-toilet-walls', 'status', 'dirty')"
+                                            class="h-4 w-4"
+                                        />
+                                        <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Dirty</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Web Cleaning Sections -->
+                        <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                            <div class="font-semibold mb-3 text-gray-800 border-b pb-2">
+                                <i class="fas fa-spider mr-2"></i>Web Cleaning Sections
+                            </div>
+                            ${renderLocation(area.id, "Web Cleaning North Section")}
+                            ${renderLocation(area.id, "Web Cleaning South Section")}
+                        </div>
+
+                        <!-- Access Areas -->
+                        <div class="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                            <div class="font-semibold mb-3 text-gray-800 border-b pb-2">
+                                <i class="fas fa-walking mr-2"></i>Access Areas
+                            </div>
+                            ${renderLocation(area.id, "Staircases Level 0")}
+                            ${renderLocation(area.id, "Corridors & Passageways")}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Regular layout for other areas
+                area.locations.forEach(location => {
+                    content += renderLocation(area.id, location);
+                });
+            }
+
+            content += '</div>';
+            return content;
+        }
+
+        // Render a single location
+        function renderLocation(areaId, location) {
+            const key = `${areaId}-${location.replace(/\s+/g, "_")}`;
+            const d = state.data[key] || {};
+            const diff = d.actualStaff && d.statedStaff 
+                ? parseInt(d.actualStaff) - parseInt(d.statedStaff) 
+                : "";
+            const diffClass = diff < 0 
+                ? "bg-red-50 text-red-700" 
+                : diff > 0 
+                    ? "bg-green-50 text-green-700" 
+                    : "bg-gray-50 text-gray-700";
+
+            return `
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <div class="font-semibold mb-3 text-gray-800">${location}</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs mb-1">Status</label>
+                            <select
+                                onchange="updateData('${key}', 'status', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm ${getStatusClass(d.status)}"
+                            >
+                                <option value="pending" ${d.status === 'pending' ? 'selected' : ''}><i class="fas fa-clock mr-1"></i>Pending</option>
+                                <option value="excellent" ${d.status === 'excellent' ? 'selected' : ''}><i class="fas fa-check-circle mr-1"></i>Excellent</option>
+                                <option value="good" ${d.status === 'good' ? 'selected' : ''}><i class="fas fa-thumbs-up mr-1"></i>Good</option>
+                                <option value="fair" ${d.status === 'fair' ? 'selected' : ''}><i class="fas fa-exclamation-triangle mr-1"></i>Fair</option>
+                                <option value="poor" ${d.status === 'poor' ? 'selected' : ''}><i class="fas fa-times-circle mr-1"></i>Poor</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1">Score (%)</label>
+                            <input
+                                type="number"
+                                value="${d.score || ''}"
+                                onchange="updateData('${key}', 'score', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm"
+                                min="0"
+                                max="100"
+                                placeholder="0-100"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mb-3">
+                        <label class="flex items-center text-sm">
+                            <input
+                                type="checkbox"
+                                ${d.deepClean ? 'checked' : ''}
+                                onchange="updateData('${key}', 'deepClean', this.checked)"
+                                class="mr-2 h-4 w-4"
+                            />
+                            <i class="fas fa-broom mr-1"></i>Deep Clean
+                        </label>
+                        <label class="flex items-center text-sm">
+                            <input
+                                type="checkbox"
+                                ${d.routineClean ? 'checked' : ''}
+                                onchange="updateData('${key}', 'routineClean', this.checked)"
+                                class="mr-2 h-4 w-4"
+                            />
+                            <i class="fas fa-broom mr-1"></i>Routine Clean
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs mb-1">Manpower</label>
+                            <input
+                                type="text"
+                                value="${d.manpower || ''}"
+                                onchange="updateData('${key}', 'manpower', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm"
+                                placeholder="e.g., 3 staff"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1">Material</label>
+                            <input
+                                type="text"
+                                value="${d.material || ''}"
+                                onchange="updateData('${key}', 'material', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm"
+                                placeholder="e.g., disinfectant, mops"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs mb-1">Stated Staff</label>
+                            <input
+                                type="number"
+                                value="${d.statedStaff || ''}"
+                                onchange="updateData('${key}', 'statedStaff', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm"
+                                min="0"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1">Actual Staff</label>
+                            <input
+                                type="number"
+                                value="${d.actualStaff || ''}"
+                                onchange="updateData('${key}', 'actualStaff', this.value)"
+                                class="w-full px-2 py-1 border rounded text-sm"
+                                min="0"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1">Difference</label>
+                            <div class="w-full px-2 py-1 rounded text-sm text-center font-semibold ${diffClass}">
+                                ${diff !== "" ? (diff > 0 ? "+" + diff : diff) : "-"}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs mb-1">Notes</label>
+                        <textarea
+                            rows="2"
+                            onchange="updateData('${key}', 'notes', this.value)"
+                            class="w-full px-2 py-1 border rounded text-sm"
+                            placeholder="Add notes..."
+                        >${d.notes || ''}</textarea>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Get CSS class for status
+        function getStatusClass(status) {
+            switch(status) {
+                case 'excellent': return 'status-excellent';
+                case 'good': return 'status-good';
+                case 'fair': return 'status-fair';
+                case 'poor': return 'status-poor';
+                default: return 'status-pending';
+            }
+        }
+
+        // Get CSS class for web status
+        function getWebStatusClass(status) {
+            switch(status) {
+                case 'completed': return 'status-excellent';
+                case 'in-progress': return 'status-fair';
+                case 'not-started': return 'status-poor';
+                default: return 'status-pending';
+            }
+        }
+
+        // Toggle section expansion
+        function toggleSection(areaId) {
+            state.expandedSections[areaId] = !state.expandedSections[areaId];
+            const contentDiv = document.getElementById(`area-content-${areaId}`);
+            const icon = document.querySelector(`[onclick="toggleSection('${areaId}')"] i`);
+            
+            if (state.expandedSections[areaId]) {
+                contentDiv.classList.remove('hidden');
+                icon.className = 'fas fa-chevron-down';
+            } else {
+                contentDiv.classList.add('hidden');
+                icon.className = 'fas fa-chevron-right';
+            }
+        }
+
+        // Update data in state
+        function updateData(key, field, value) {
+            if (!state.data[key]) {
+                state.data[key] = {};
+            }
+            state.data[key][field] = value;
+            updateStats();
+        }
+
+        // Calculate and update statistics
+        function updateStats() {
+            const values = Object.values(state.data);
+            const stats = {
+                excellent: values.filter((v) => v.status === "excellent").length,
+                good: values.filter((v) => v.status === "good").length,
+                fair: values.filter((v) => v.status === "fair").length,
+                poor: values.filter((v) => v.status === "poor").length,
+            };
+
+            const scores = values
+                .filter((v) => v.score !== "" && v.score !== undefined)
+                .map((v) => parseInt(v.score) || 0);
+            const avgScore = scores.length > 0
+                ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+                : 0;
+
+            // Update DOM
+            document.getElementById('excellent-count').textContent = stats.excellent;
+            document.getElementById('good-count').textContent = stats.good;
+            document.getElementById('fair-count').textContent = stats.fair;
+            document.getElementById('poor-count').textContent = stats.poor;
+            document.getElementById('avg-score').textContent = avgScore + '%';
+        }
+
+        // Save report
+        function saveReport() {
+            // Get values from form
+            state.currentDate = document.getElementById('current-date-input').value;
+            state.currentTime = document.getElementById('current-time-input').value;
+            state.shift = document.getElementById('shift-select').value;
+            state.inspector = document.getElementById('inspector-input').value;
+            
+            if (!state.inspector || !state.shift) {
+                showStatus('warning', '⚠ Please fill inspector name and shift');
+                return;
+            }
+
+            const timestamp = new Date().toISOString();
+            const report = {
+                timestamp,
+                date: state.currentDate,
+                time: state.currentTime,
+                shift: state.shift,
+                inspector: state.inspector,
+                data: { ...state.data },
+            };
+
+            // Save to localStorage
+            const reports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
+            reports.push(report);
+            localStorage.setItem('airportCleanlinessReports', JSON.stringify(reports));
+            
+            // Update state
+            state.savedReports = reports;
+            
+            showStatus('success', '✓ Report saved successfully!');
+            
+            // Clear form after saving if desired
+            // clearForm();
+        }
+
+        // Load saved reports
+        function loadSavedReports() {
+            const reports = JSON.parse(localStorage.getItem('airportCleanlinessReports') || '[]');
+            state.savedReports = reports.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            return state.savedReports;
+        }
+
+        // Render reports based on period
+        function renderReports(period) {
+            const reports = loadSavedReports();
+            const now = new Date();
+            let filteredReports = [];
+            let title = '';
+
+            switch(period) {
+                case 'daily':
+                    filteredReports = reports.filter(report => {
+                        const reportDate = new Date(report.timestamp).toDateString();
+                        return reportDate === now.toDateString();
+                    });
+                    title = "Today's Reports";
+                    break;
+                case 'weekly':
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    filteredReports = reports.filter(report => {
+                        const reportDate = new Date(report.timestamp);
+                        return reportDate >= weekAgo;
+                    });
+                    title = "This Week's Reports";
+                    break;
+                case 'monthly':
+                    filteredReports = reports.filter(report => {
+                        const reportDate = new Date(report.timestamp);
+                        return reportDate.getMonth() === now.getMonth() && 
+                               reportDate.getFullYear() === now.getFullYear();
+                    });
+                    title = "This Month's Reports";
+                    break;
+                default:
+                    filteredReports = reports;
+                    title = "All Reports";
+            }
+
+            reportsTitle.textContent = title;
+            reportsContainer.innerHTML = '';
+
+            if (filteredReports.length === 0) {
+                reportsContainer.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-chart-bar text-4xl mb-4 opacity-50"></i>
+                        <p class="text-lg">No reports for this period</p>
+                        <p class="text-sm mt-2">Create a new report using the "New Entry" tab</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filteredReports.forEach((report, idx) => {
+                const reportDate = new Date(report.timestamp);
+                const stats = calculateReportStats(report.data);
+                
+                const reportElement = document.createElement('div');
+                reportElement.className = 'border rounded-lg p-4 bg-white shadow-sm hover:shadow-md smooth-transition';
+                reportElement.innerHTML = `
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
+                        <div>
+                            <p class="font-semibold text-lg"><i class="fas fa-user-check mr-2"></i>${report.inspector}</p>
+                            <p class="text-sm text-gray-600">
+                                <i class="far fa-calendar mr-1"></i>${reportDate.toLocaleDateString()} 
+                                <i class="far fa-clock ml-3 mr-1"></i>${reportDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                <span class="ml-3 px-2 py-1 text-xs rounded-full ${getShiftColorClass(report.shift)}">${report.shift}</span>
+                            </p>
+                        </div>
+                        <div class="flex space-x-2 mt-2 md:mt-0">
+                            <button 
+                                onclick="viewReport(${idx})" 
+                                class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 smooth-transition"
+                            >
+                                <i class="fas fa-eye mr-1"></i>View
+                            </button>
+                            <button 
+                                onclick="exportSingleReport(${idx})" 
+                                class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 smooth-transition"
+                            >
+                                <i class="fas fa-download mr-1"></i>Export
+                            </button>
+                            <button 
+                                onclick="deleteReport(${idx})" 
+                                class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 smooth-transition"
+                            >
+                                <i class="fas fa-trash-alt mr-1"></i>Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                        <div class="bg-green-50 text-green-800 p-2 rounded text-center">
+                            <div class="font-bold">${stats.excellent}</div>
+                            <div class="text-xs">Excellent</div>
+                        </div>
+                        <div class="bg-blue-50 text-blue-800 p-2 rounded text-center">
+                            <div class="font-bold">${stats.good}</div>
+                            <div class="text-xs">Good</div>
+                        </div>
+                        <div class="bg-yellow-50 text-yellow-800 p-2 rounded text-center">
+                            <div class="font-bold">${stats.fair}</div>
+                            <div class="text-xs">Fair</div>
+                        </div>
+                        <div class="bg-red-50 text-red-800 p-2 rounded text-center">
+                            <div class="font-bold">${stats.poor}</div>
+                            <div class="text-xs">Poor</div>
+                        </div>
+                    </div>
+                `;
+                reportsContainer.appendChild(reportElement);
+            });
+        }
+
+        // Get color class for shift
+        function getShiftColorClass(shift) {
+            switch(shift) {
+                case 'morning': return 'bg-yellow-100 text-yellow-800';
+                case 'evening': return 'bg-orange-100 text-orange-800';
+                case 'night': return 'bg-indigo-100 text-indigo-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        // Calculate stats for a report
+        function calculateReportStats(data) {
+            const values = Object.values(data);
+            return {
+                excellent: values.filter((v) => v.status === "excellent").length,
+                good: values.filter((v) => v.status === "good").length,
+                fair: values.filter((v) => v.status === "fair").length,
+                poor: values.filter((v) => v.status === "poor").length,
+            };
+        }
+
+        // View a report
+        function viewReport(index) {
+            const report = state.savedReports[index];
+            alert(`Report Details:\n\nInspector: ${report.inspector}\nDate: ${report.date}\nTime: ${report.time}\nShift: ${report.shift}\n\nTotal Items: ${Object.keys(report.data).length}`);
+        }
+
+        // Delete a report
+        function deleteReport(index) {
+            if (confirm('Are you sure you want to delete this report?')) {
+                state.savedReports.splice(index, 1);
+                localStorage.setItem('airportCleanlinessReports', JSON.stringify(state.savedReports));
+                renderReports(state.viewMode);
+                showStatus('success', '✓ Report deleted successfully');
+            }
+        }
+
+        // Export CSV for all reports in current view
+        function exportAllReports() {
+            const reports = loadSavedReports();
+            let filteredReports = [];
+            const now = new Date();
+
+            switch(state.viewMode) {
+                case 'daily':
+                    filteredReports = reports.filter(report => {
+                        const reportDate = new Date(report.timestamp).toDateString();
+                        return reportDate === now.toDateString();
+                    });
+                    break;
+                case 'weekly':
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    filteredReports = reports.filter(report => {
+                        const reportDate = new Date(report.timestamp);
+                        return reportDate >= weekAgo;
+                    });
+                    break;
+                case 'monthly':
+                    filteredReports = reports.filter(report => {
+                        const reportDate = new Date(report.timestamp);
+                        return reportDate.getMonth() === now.getMonth() && 
+                               reportDate.getFullYear() === now.getFullYear();
+                    });
+                    break;
+                default:
+                    filteredReports = reports;
+            }
+
+            exportCSV(filteredReports);
+        }
+
+        // Export a single report
+        function exportSingleReport(index) {
+            const report = state.savedReports[index];
+            exportCSV([report]);
+        }
+
+        // Export CSV function
+        function exportCSV(reports = []) {
+            if (reports.length === 0) {
+                // If no reports provided, export current form data
+                const report = {
+                    date: document.getElementById('current-date-input').value || state.currentDate,
+                    time: document.getElementById('current-time-input').value || state.currentTime,
+                    shift: document.getElementById('shift-select').value || state.shift,
+                    inspector: document.getElementById('inspector-input').value || state.inspector,
+                    data: state.data,
+                };
+                reports = [report];
+            }
+
+            let csv = "Date,Shift,Time,Inspector,Area,Section,Type,Status,Score,Deep Clean,Routine Clean,Manpower,Material,Stated Staff,Actual Staff,Difference,Notes,Walls Status,FIA Status,Belt Status,Web Status,Last Cleaned,Last Emptied\n";
+
+            reports.forEach((report) => {
+                state.areas.forEach((area) => {
+                    // Export locations
+                    area.locations.forEach((loc) => {
+                        const key = `${area.id}-${loc.replace(/\s+/g, "_")}`;
+                        const d = report.data[key] || {};
+                        const diff = d.actualStaff && d.statedStaff
+                            ? parseInt(d.actualStaff) - parseInt(d.statedStaff)
+                            : "";
+                        csv += `"${report.date}","${report.shift}","${report.time}","${
+                            report.inspector
+                        }","${area.name}","${loc}","Location","${d.status || ""}","${
+                            d.score || ""
+                        }","${d.deepClean || false}","${d.routineClean || false}","${
+                            d.manpower || ""
+                        }","${d.material || ""}","${d.statedStaff || ""}","${
+                            d.actualStaff || ""
+                        }","${diff}","${d.notes || ""}","","","","",""\n`;
+                    });
+
+                    // Export walls data
+                    if (area.hasWalls) {
+                        const wallsKey = `${area.id}-walls`;
+                        const wallsData = report.data[wallsKey] || {};
+                        csv += `"${report.date}","${report.shift}","${report.time}","${
+                            report.inspector
+                        }","${area.name}","Walls","Walls","","","","","","","","","","${
+                            wallsData.wallsStatus || ""
+                        }","","","","",""\n`;
+
+                        if (area.hasToilets) {
+                            const toiletWallsKey = `${area.id}-toilet-walls`;
+                            const toiletWallsData = report.data[toiletWallsKey] || {};
+                            csv += `"${report.date}","${report.shift}","${report.time}","${
+                                report.inspector
+                            }","${
+                                area.name
+                            }","Toilet Walls","Walls","","","","","","","","","","${
+                                toiletWallsData.status || ""
+                            }","","","","",""\n`;
+                        }
+                    }
+
+                    // Export FIA counters
+                    if (area.hasFIACounters) {
+                        const fiaKey = `${area.id}-fia-counters`;
+                        const fiaData = report.data[fiaKey] || {};
+                        csv += `"${report.date}","${report.shift}","${report.time}","${
+                            report.inspector
+                        }","${area.name}","FIA Counters","FIA","${
+                            fiaData.status || ""
+                        }","","","","","","","","","","${fiaData.status || ""}","","","${
+                            fiaData.lastChecked || ""
+                        }",""\n`;
+                    }
+
+                    // Export conveyor belts
+                    if (area.hasConveyorBelt) {
+                        const beltKey = `${area.id}-conveyor-belt`;
+                        const beltData = report.data[beltKey] || {};
+                        csv += `"${report.date}","${report.shift}","${report.time}","${
+                            report.inspector
+                        }","${area.name}","Conveyor Belt","Belt","${
+                            beltData.status || ""
+                        }","","","","","","","","","","","${beltData.status || ""}","","${
+                            beltData.lastCleaned || ""
+                        }",""\n`;
+                    }
+
+                    // Export web cleaning
+                    if (area.hasWebClean) {
+                        const webKey = `${area.id}-web-clean`;
+                        const webData = report.data[webKey] || {};
+                        csv += `"${report.date}","${report.shift}","${report.time}","${
+                            report.inspector
+                        }","${area.name}","Web Cleaning","Web","${
+                            webData.status || ""
+                        }","","","","","","","","","","","","${webData.status || ""}","${
+                            webData.lastCleaned || ""
+                        }",""\n`;
+                    }
+
+                    // Export dustbins data
+                    if (area.hasDustbins) {
+                        const dustbinsKey = `${area.id}-dustbins`;
+                        const dustbinsData = report.data[dustbinsKey] || {};
+                        csv += `"${report.date}","${report.shift}","${report.time}","${
+                            report.inspector
+                        }","${
+                            area.name
+                        }","Dustbins","Dustbins","","","","","","","","","","","","","","","${
+                            dustbinsData.lastEmptied || ""
+                        }"\n`;
+                    }
+                });
+            });
+
+            // Create and download CSV file
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `airport-cleanliness-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus('success', '✓ CSV exported successfully');
+        }
+
+        // Clear form
+        function clearForm() {
+            if (confirm('Are you sure you want to clear all form data?')) {
+                // Reset form fields
+                const now = new Date();
+                document.getElementById('current-date-input').value = now.toISOString().split('T')[0];
+                document.getElementById('current-time-input').value = now.toTimeString().slice(0, 5);
+                document.getElementById('shift-select').value = '';
+                document.getElementById('inspector-input').value = '';
+                
+                // Reset data
+                initializeData();
+                
+                // Re-render areas
+                renderAreas();
+                
+                // Update stats
+                updateStats();
+                
+                showStatus('success', '✓ Form cleared successfully');
+            }
+        }
+
+        // Print report
+        function printReport() {
+            // Prepare data for printing
+            const printContent = `
+                <html>
+                <head>
+                    <title>Airport Cleanliness Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }
+                        .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+                        .section { margin-bottom: 30px; break-inside: avoid; }
+                        .section-title { background-color: #3b82f6; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f3f4f6; }
+                        .stats { display: flex; justify-content: space-between; margin-bottom: 20px; }
+                        .stat-box { text-align: center; padding: 10px; border-radius: 5px; color: white; width: 18%; }
+                        .excellent { background-color: #10b981; }
+                        .good { background-color: #3b82f6; }
+                        .fair { background-color: #f59e0b; }
+                        .poor { background-color: #ef4444; }
+                        .avg { background-color: #8b5cf6; }
+                    </style>
+                </head>
+                <body>
+                    <h1>✈️ Airport Cleanliness Inspection Report</h1>
+                    
+                    <div class="header">
+                        <div>
+                            <p><strong>Date:</strong> ${document.getElementById('current-date-input').value || state.currentDate}</p>
+                            <p><strong>Time:</strong> ${document.getElementById('current-time-input').value || state.currentTime}</p>
+                        </div>
+                        <div>
+                            <p><strong>Shift:</strong> ${document.getElementById('shift-select').value || state.shift}</p>
+                            <p><strong>Inspector:</strong> ${document.getElementById('inspector-input').value || state.inspector}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stats">
+                        <div class="stat-box excellent">
+                            <div style="font-size: 24px;">${document.getElementById('excellent-count').textContent}</div>
+                            <div>Excellent</div>
+                        </div>
+                        <div class="stat-box good">
+                            <div style="font-size: 24px;">${document.getElementById('good-count').textContent}</div>
+                            <div>Good</div>
+                        </div>
+                        <div class="stat-box fair">
+                            <div style="font-size: 24px;">${document.getElementById('fair-count').textContent}</div>
+                            <div>Fair</div>
+                        </div>
+                        <div class="stat-box poor">
+                            <div style="font-size: 24px;">${document.getElementById('poor-count').textContent}</div>
+                            <div>Poor</div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div style="font-size: 24px;">${document.getElementById('avg-score').textContent}</div>
+                            <div>Avg Score</div>
+                        </div>
+                    </div>
+                    
+                    ${state.areas.map(area => {
+                        // Count statuses for this area
+                        let areaStats = { excellent: 0, good: 0, fair: 0, poor: 0, pending: 0 };
+                        area.locations.forEach(loc => {
+                            const key = `${area.id}-${loc.replace(/\s+/g, "_")}`;
+                            const d = state.data[key] || {};
+                            if (d.status && areaStats[d.status] !== undefined) {
+                                areaStats[d.status]++;
+                            }
+                        });
+                        
+                        return `
+                            <div class="section">
+                                <div class="section-title">${area.name}</div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Location</th>
+                                            <th>Status</th>
+                                            <th>Score</th>
+                                            <th>Staff</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${area.locations.map(loc => {
+                                            const key = `${area.id}-${loc.replace(/\s+/g, "_")}`;
+                                            const d = state.data[key] || {};
+                                            return `
+                                                <tr>
+                                                    <td>${loc}</td>
+                                                    <td>${d.status || 'Pending'}</td>
+                                                    <td>${d.score || ''}</td>
+                                                    <td>${d.actualStaff || ''}/${d.statedStaff || ''}</td>
+                                                    <td>${(d.notes || '').substring(0, 50)}${(d.notes || '').length > 50 ? '...' : ''}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                                <div style="font-size: 12px; margin-top: 5px;">
+                                    Summary: ${areaStats.excellent} Excellent, ${areaStats.good} Good, ${areaStats.fair} Fair, ${areaStats.poor} Poor
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                    
+                    <div style="margin-top: 30px; font-size: 12px; text-align: center; color: #666;">
+                        <p>Report generated on ${new Date().toLocaleString()}</p>
+                        <p>Airport Cleanliness Inspection System</p>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // Wait for content to load before printing
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+
+        // Initialize the application when page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
